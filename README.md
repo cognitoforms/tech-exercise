@@ -34,13 +34,13 @@ cd frontend && npm run dev                     # SPA on http://localhost:5173
 Sample quizzes (seeded at startup from `backend/QuizApp.Api/Quizzes/QuizSeeder.cs`):
 
 - `/quiz/world-geography`
-- `/quiz/web-fundamentals`
+- `/quiz/web-fundamentals` (timed: 90 seconds)
 - `/quiz/space`
 
 ## Tests
 
 ```bash
-dotnet test QuizApp.slnx        # document store, quiz rules, API integration
+dotnet test QuizApp.slnx        # document store, quiz rules, time limits, API integration
 cd frontend && npm test          # QuestionForm component
 ```
 
@@ -72,6 +72,11 @@ Answer bodies are `{ questionId, choiceId }`. The server only accepts the attemp
 - an answered question can't be changed (`409`),
 - a double-clicked or retried "Next" can't be applied to the following question (`409`, and the SPA resyncs),
 - a choice from another question is rejected (`400`).
+
+**Time limits.** A quiz can set `TimeLimitSeconds`. The clock starts when the attempt is created (the first answer),
+and the progress response includes `timeRemainingSeconds`. The server rejects answers after the deadline (`409`),
+and once the deadline has passed `timedOut` is `true`, `currentQuestion` is `null`, and unanswered questions are
+blank in the summary. The SPA shows a countdown and reloads from the server when it reaches zero.
 
 Errors use RFC 7807 problem details. A token that belongs to a different quiz returns `404`, the same as an
 unknown token.

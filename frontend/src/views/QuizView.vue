@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ApiError, quizApi, type QuizProgress } from '../api/quizApi'
 import QuestionForm from '../components/QuestionForm.vue'
@@ -19,6 +19,46 @@ const loadErrorIsNotFound = ref(false)
 const submitting = ref(false)
 const submitError = ref<string | null>(null)
 const notice = ref<string | null>(null)
+
+// Countdown for timed quizzes. The server sends seconds remaining, which we anchor to the local clock on receipt,
+// so client/server clock skew doesn't matter. When it reaches zero we reload to get the server's timed-out view.
+const secondsLeft = ref<number | null>(null)
+let deadlineMs = 0
+let timerId: ReturnType<typeof setInterval> | undefined
+
+function stopTimer() {
+  clearInterval(timerId)
+  timerId = undefined
+}
+
+function tick() {
+  const left = Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000))
+  secondsLeft.value = left
+  if (left === 0) {
+    stopTimer()
+    if (progress.value?.currentQuestion) void load()
+  }
+}
+
+function startTimer(remaining: number | null) {
+  stopTimer()
+  if (remaining === null) {
+    secondsLeft.value = null
+    return
+  }
+  deadlineMs = Date.now() + remaining * 1000
+  tick()
+  if (secondsLeft.value !== null && secondsLeft.value > 0) timerId = setInterval(tick, 250)
+}
+
+watch(progress, (value) => startTimer(value?.timeRemainingSeconds ?? null))
+onUnmounted(stopTimer)
+
+function formatTime(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = String(totalSeconds % 60).padStart(2, '0')
+  return `${minutes}:${seconds}`
+}
 
 // Guards against out-of-order responses when the route changes while a request is in flight.
 let loadSequence = 0
@@ -70,7 +110,7 @@ async function submitAnswer(choiceId: string) {
   } catch (error) {
     if (error instanceof ApiError && error.status === 409) {
       // The attempt moved on elsewhere (e.g. another tab); resync with the server's view.
-      notice.value = 'That question was already answered. Continuing from where you left off.'
+      notice.value = 'Your progress was updated on the server. Continuing from where you left off.'
       await load()
     } else {
       submitError.value = errorMessage(error)
@@ -97,6 +137,11 @@ function errorMessage(error: unknown): string {
 
     <template v-else-if="progress">
       <h1>{{ progress.title }}</h1>
+
+      <p v-if="secondsLeft !== null && progress.currentQuestion" class="timer" role="timer">
+        Time left: {{ formatTime(secondsLeft) }}
+      </p>
+      <p v-if="progress.timedOut" class="error" role="alert">Time's up. Unanswered questions were left blank.</p>
 
       <p v-if="notice" role="status">{{ notice }}</p>
 

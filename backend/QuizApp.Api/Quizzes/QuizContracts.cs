@@ -17,7 +17,11 @@ public sealed record QuizProgress(
     int TotalQuestions,
     int AnsweredCount,
     QuestionView? CurrentQuestion,
-    IReadOnlyList<SummaryItem>? Summary)
+    IReadOnlyList<SummaryItem>? Summary,
+    /// <summary>Whole seconds left on a timed quiz's attempt; <c>null</c> for untimed quizzes or completed attempts.</summary>
+    int? TimeRemainingSeconds = null,
+    /// <summary>True once the attempt's time limit has passed before every question was answered.</summary>
+    bool TimedOut = false)
 {
     public bool IsComplete => CurrentQuestion is null;
 }

@@ -45,6 +45,7 @@ public static class SampleQuizzes
         {
             Id = "web-fundamentals",
             Title = "Web Fundamentals",
+            TimeLimitSeconds = 90,
             Questions =
             [
                 Q("q1", "Which HTTP status code indicates that a resource was created?", "200", "201", "204", "302"),

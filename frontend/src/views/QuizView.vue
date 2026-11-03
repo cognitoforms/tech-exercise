@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ApiError, quizApi, type QuizProgress } from '../api/quizApi'
 import QuestionForm from '../components/QuestionForm.vue'
 import QuizSummary from '../components/QuizSummary.vue'
+import { quizTimeLimits } from '../quizTimeLimits'
 
 const props = defineProps<{
   quizId: string
@@ -20,6 +21,43 @@ const submitting = ref(false)
 const submitError = ref<string | null>(null)
 const notice = ref<string | null>(null)
 
+const timeLimitSeconds = computed(() => quizTimeLimits[props.quizId] ?? null)
+const startedAt = ref<number | null>(null)
+const now = ref(Date.now())
+const secondsLeft = computed(() => {
+  if (startedAt.value === null || timeLimitSeconds.value === null) return null
+  return Math.max(0, Math.ceil((startedAt.value + timeLimitSeconds.value * 1000 - now.value) / 1000))
+})
+const timedOut = computed(() => secondsLeft.value === 0)
+
+const startKey = (token: string) => `quiz-started:${token}`
+
+function readStartedAt(token: string | undefined): number | null {
+  if (!token || timeLimitSeconds.value === null) return null
+  const stored = Number(localStorage.getItem(startKey(token)))
+  return Number.isFinite(stored) && stored > 0 ? stored : null
+}
+
+let timerId: ReturnType<typeof setInterval> | undefined
+
+watch(
+  () => (secondsLeft.value ?? 0) > 0,
+  (running) => {
+    clearInterval(timerId)
+    timerId = undefined
+    if (running) timerId = setInterval(() => (now.value = Date.now()), 250)
+  },
+  { immediate: true },
+)
+
+onUnmounted(() => clearInterval(timerId))
+
+function formatTime(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = String(totalSeconds % 60).padStart(2, '0')
+  return `${minutes}:${seconds}`
+}
+
 // Guards against out-of-order responses when the route changes while a request is in flight.
 let loadSequence = 0
 
@@ -30,7 +68,10 @@ async function load() {
   loadErrorIsNotFound.value = false
   try {
     const result = await quizApi.getProgress(props.quizId, props.token ?? null)
-    if (sequence === loadSequence) progress.value = result
+    if (sequence === loadSequence) {
+      progress.value = result
+      startedAt.value = readStartedAt(props.token)
+    }
   } catch (error) {
     if (sequence === loadSequence) {
       progress.value = null
@@ -54,14 +95,21 @@ watch(
 
 async function submitAnswer(choiceId: string) {
   const question = progress.value?.currentQuestion
-  if (!question || submitting.value) return
+  if (!question || submitting.value || timedOut.value) return
 
   submitting.value = true
   submitError.value = null
   notice.value = null
   try {
+    const isFirstAnswer = props.token === undefined
     const result = await quizApi.answer(props.quizId, props.token ?? null, question.id, choiceId)
     progress.value = result
+
+    // The clock starts with the first answer.
+    if (isFirstAnswer && result.token && timeLimitSeconds.value !== null) {
+      localStorage.setItem(startKey(result.token), String(Date.now()))
+      startedAt.value = Date.now()
+    }
 
     // Replace rather than push so "Back" can't return to an already-answered question.
     if (result.token && result.token !== props.token) {
@@ -98,6 +146,13 @@ function errorMessage(error: unknown): string {
     <template v-else-if="progress">
       <h1>{{ progress.title }}</h1>
 
+      <p v-if="secondsLeft !== null && progress.currentQuestion && !timedOut" class="timer" role="timer">
+        Time left: {{ formatTime(secondsLeft) }}
+      </p>
+      <p v-if="timedOut && progress.currentQuestion" class="error" role="alert">
+        Time's up. Unanswered questions were left blank.
+      </p>
+
       <p v-if="notice" role="status">{{ notice }}</p>
 
       <QuestionForm
@@ -105,7 +160,7 @@ function errorMessage(error: unknown): string {
         :key="progress.currentQuestion.id"
         :question="progress.currentQuestion"
         :total-questions="progress.totalQuestions"
-        :submitting="submitting"
+        :submitting="submitting || timedOut"
         @submit="submitAnswer"
       />
       <QuizSummary v-else :items="progress.summary ?? []" />

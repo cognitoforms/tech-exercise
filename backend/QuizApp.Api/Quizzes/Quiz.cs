@@ -8,12 +8,6 @@ public sealed class Quiz : Document
     public required string Title { get; init; }
 
     public required IReadOnlyList<Question> Questions { get; init; }
-
-    /// <summary>
-    /// Optional time limit. The clock starts when the attempt is created (its first answer) and an attempt
-    /// can't be answered after it expires. <c>null</c> means untimed.
-    /// </summary>
-    public int? TimeLimitSeconds { get; init; }
 }
 
 public sealed record Question(string Id, string Text, IReadOnlyList<Choice> Choices);

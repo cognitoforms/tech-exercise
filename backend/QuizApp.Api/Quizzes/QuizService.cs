@@ -12,8 +12,6 @@ public enum QuizError
     QuestionNotCurrent,
     /// <summary>The submitted choice does not belong to the question.</summary>
     InvalidChoice,
-    /// <summary>The attempt's time limit has passed, so it can no longer be answered.</summary>
-    TimeExpired,
 }
 
 public readonly record struct QuizResult(QuizProgress? Progress, QuizError? Error)
@@ -39,13 +37,13 @@ public sealed class QuizService(
     public async Task<QuizResult> GetNewProgressAsync(string quizId, CancellationToken cancellationToken)
     {
         var quiz = await quizzes.GetAsync(quizId, cancellationToken);
-        return quiz is null ? QuizError.QuizNotFound : BuildProgress(quiz, attempt: null, timeProvider.GetUtcNow());
+        return quiz is null ? QuizError.QuizNotFound : BuildProgress(quiz, attempt: null);
     }
 
     public async Task<QuizResult> GetProgressAsync(string quizId, string token, CancellationToken cancellationToken)
     {
         var (quiz, attempt, error) = await LoadAsync(quizId, token, cancellationToken);
-        return error ?? (QuizResult)BuildProgress(quiz!, attempt, timeProvider.GetUtcNow());
+        return error ?? (QuizResult)BuildProgress(quiz!, attempt);
     }
 
     /// <summary>Answers the first question of a quiz, creating a new attempt (and token).</summary>
@@ -71,7 +69,7 @@ public sealed class QuizService(
             try
             {
                 await attempts.CreateAsync(attempt, cancellationToken);
-                return BuildProgress(quiz, attempt, timeProvider.GetUtcNow());
+                return BuildProgress(quiz, attempt);
             }
             catch (DocumentConflictException) when (i < MaxWriteAttempts - 1)
             {
@@ -95,7 +93,7 @@ public sealed class QuizService(
             try
             {
                 await attempts.UpdateAsync(attempt!, cancellationToken);
-                return BuildProgress(quiz!, attempt, timeProvider.GetUtcNow());
+                return BuildProgress(quiz!, attempt);
             }
             catch (DocumentConflictException) when (i < MaxWriteAttempts - 1)
             {
@@ -121,17 +119,14 @@ public sealed class QuizService(
     {
         // Requiring the client to name the question it is answering makes submissions safe to retry: a duplicate
         // "Next" click can never be applied to the following question.
-        var now = timeProvider.GetUtcNow();
         var current = FindCurrentQuestion(quiz, attempt);
         if (current is null || current.Id != questionId)
             return QuizError.QuestionNotCurrent;
 
-        if (IsTimedOut(quiz, attempt, now))
-            return QuizError.TimeExpired;
-
         if (!current.Choices.Any(c => c.Id == choiceId))
             return QuizError.InvalidChoice;
 
+        var now = timeProvider.GetUtcNow();
         attempt.Answers.Add(new RecordedAnswer(questionId, choiceId, now));
 
         if (FindCurrentQuestion(quiz, attempt) is null)
@@ -149,25 +144,10 @@ public sealed class QuizService(
         return quiz.Questions.FirstOrDefault(q => !answered.Contains(q.Id));
     }
 
-    private static DateTimeOffset? DeadlineOf(Quiz quiz, QuizAttempt? attempt) =>
-        attempt is null || quiz.TimeLimitSeconds is not { } limit
-            ? null
-            : attempt.StartedAt.AddSeconds(limit);
-
-    /// <summary>True when the attempt is still unfinished but its time limit has passed.</summary>
-    private static bool IsTimedOut(Quiz quiz, QuizAttempt? attempt, DateTimeOffset now) =>
-        DeadlineOf(quiz, attempt) is { } deadline && now >= deadline && FindCurrentQuestion(quiz, attempt) is not null;
-
-    private static QuizProgress BuildProgress(Quiz quiz, QuizAttempt? attempt, DateTimeOffset now)
+    private static QuizProgress BuildProgress(Quiz quiz, QuizAttempt? attempt)
     {
+        var current = FindCurrentQuestion(quiz, attempt);
         var answeredCount = quiz.Questions.Count(q => attempt?.Answers.Any(a => a.QuestionId == q.Id) == true);
-        var timedOut = IsTimedOut(quiz, attempt, now);
-        var current = timedOut ? null : FindCurrentQuestion(quiz, attempt);
-        var deadline = DeadlineOf(quiz, attempt);
-
-        int? remaining = deadline is null || (current is null && !timedOut)
-            ? null
-            : (int)Math.Ceiling(Math.Max(0, (deadline.Value - now).TotalSeconds));
 
         return new QuizProgress(
             QuizId: quiz.Id,
@@ -176,9 +156,7 @@ public sealed class QuizService(
             TotalQuestions: quiz.Questions.Count,
             AnsweredCount: answeredCount,
             CurrentQuestion: current is null ? null : ToView(current, number: answeredCount + 1),
-            Summary: current is null ? BuildSummary(quiz, attempt) : null,
-            TimeRemainingSeconds: remaining,
-            TimedOut: timedOut);
+            Summary: current is null ? BuildSummary(quiz, attempt) : null);
     }
 
     private static QuestionView ToView(Question question, int number) => new(

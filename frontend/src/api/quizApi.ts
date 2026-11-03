@@ -26,13 +26,9 @@ export interface QuizProgress {
   answeredCount: number
   /** The next question to answer, or null once the quiz is complete. */
   currentQuestion: QuestionView | null
-  /** Present only once every question has been answered (or time ran out). */
+  /** Present only once every question has been answered. */
   summary: SummaryItem[] | null
   isComplete: boolean
-  /** Whole seconds left on a timed quiz; null when untimed or complete. */
-  timeRemainingSeconds: number | null
-  /** True when the time limit passed before every question was answered. */
-  timedOut: boolean
 }
 
 export class ApiError extends Error {

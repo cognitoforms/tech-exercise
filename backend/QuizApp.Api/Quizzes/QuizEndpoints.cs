@@ -56,8 +56,6 @@ public static class QuizEndpoints
             title: "Quiz progress not found. The link may be incorrect."),
         QuizError.QuestionNotCurrent => Results.Problem(statusCode: StatusCodes.Status409Conflict,
             title: "This question has already been answered or is not the current question."),
-        QuizError.TimeExpired => Results.Problem(statusCode: StatusCodes.Status409Conflict,
-            title: "Time is up. This quiz's time limit has passed."),
         QuizError.InvalidChoice => Results.ValidationProblem(new Dictionary<string, string[]>
         {
             [nameof(AnswerRequest.ChoiceId)] = ["The selected answer is not valid for this question."],

@@ -68,13 +68,16 @@ unknown token.
 
 ### Persistence
 
-`IDocumentStore<T>` provides get/create/update by id. `InMemoryDocumentStore<T>` implements it:
+`IDocumentStore<T>` provides get/create/update/delete by id, plus `GetAll` and `GetRange(idPrefix)` (key
+prefix scan) for listing. `InMemoryDocumentStore<T>` implements it:
 
 - Documents are stored as serialized JSON, so callers always get a copy and can only change stored state by
   calling `UpdateAsync`, the same as with a real document DB.
 - `Version` gives optimistic concurrency: updating from a stale read throws `DocumentConflictException`.
   `QuizService` retries by re-reading, so when two submissions race for the same question, one wins and the
   other gets `409`. There's a test for this.
+- Listing returns documents ordered by id (ordinal). `GetRange` matches ids by prefix (ordinal, case-sensitive),
+  so related documents can be grouped under a shared id prefix. There are no other indexes or filters.
 
 Two document types: `Quiz` (id = URL slug) and `QuizAttempt` (id = the resume token: 128 random bits,
 base64url).

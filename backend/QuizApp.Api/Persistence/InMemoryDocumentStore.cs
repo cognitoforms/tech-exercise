@@ -23,6 +23,18 @@ public sealed class InMemoryDocumentStore<TDocument> : IDocumentStore<TDocument>
         return Task.FromResult(_documents.TryGetValue(id, out var json) ? Deserialize(json) : null);
     }
 
+    public Task<IReadOnlyList<TDocument>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<TDocument>>(OrderedSnapshot().Select(Deserialize).ToList());
+
+    public Task<IReadOnlyList<TDocument>> GetRangeAsync(string idPrefix, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(idPrefix);
+
+        // Filter on the key before deserializing so only matching documents are materialized.
+        return Task.FromResult<IReadOnlyList<TDocument>>(
+            OrderedSnapshot(id => id.StartsWith(idPrefix, StringComparison.Ordinal)).Select(Deserialize).ToList());
+    }
+
     public Task CreateAsync(TDocument document, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -60,6 +72,26 @@ public sealed class InMemoryDocumentStore<TDocument> : IDocumentStore<TDocument>
 
         return Task.CompletedTask;
     }
+
+    public Task DeleteAsync(string id, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+
+        if (!_documents.TryRemove(id, out _))
+            throw new DocumentNotFoundException(id);
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Point-in-time copy of the stored JSON, optionally filtered by id and ordered by id. <see cref="ConcurrentDictionary{TKey,TValue}.ToArray"/>
+    /// takes a consistent snapshot, unlike enumerating the dictionary directly.
+    /// </summary>
+    private IEnumerable<string> OrderedSnapshot(Func<string, bool>? idFilter = null) =>
+        _documents.ToArray()
+            .Where(entry => idFilter is null || idFilter(entry.Key))
+            .OrderBy(entry => entry.Key, StringComparer.Ordinal)
+            .Select(entry => entry.Value);
 
     private static string Serialize(TDocument document) => JsonSerializer.Serialize(document, SerializerOptions);
 

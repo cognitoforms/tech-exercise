@@ -21,8 +21,6 @@ const submitting = ref(false)
 const submitError = ref<string | null>(null)
 const notice = ref<string | null>(null)
 
-// Client-only timer. The server doesn't know about time limits: the start time is kept in localStorage per attempt
-// token, so a resumed attempt in the same browser keeps counting down. Answers are not blocked by the server.
 const timeLimitSeconds = computed(() => quizTimeLimits[props.quizId] ?? null)
 const startedAt = ref<number | null>(null)
 const now = ref(Date.now())

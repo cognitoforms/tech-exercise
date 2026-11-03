@@ -106,14 +106,3 @@ frontend/src/
   components/QuestionForm.vue  one question; Next is disabled until a choice is selected
   components/QuizSummary.vue
 ```
-
-## Out of scope / follow-ups
-
-- **Quiz edits during an attempt.** Attempts store question and choice ids, and the summary is built from the
-  current quiz. If a quiz can be edited while people are taking it, the attempt should store a quiz version or
-  copy the question and answer text.
-- **The token is a bearer secret.** Anyone with the URL can see and continue the attempt. That fits the
-  requirements, but if attempts are tied to user accounts, check ownership as well.
-- **No scoring.** The requirements don't ask for correct answers, so quizzes don't store them.
-- **Not included:** quiz listing or authoring, rate limiting on attempt creation, expiry of abandoned attempts,
-  and visual design.

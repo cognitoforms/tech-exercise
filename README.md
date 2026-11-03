@@ -6,6 +6,16 @@ Multiple choice quizzes that can be resumed later. Vue 3 SPA + ASP.NET Core (.NE
 
 Requires the .NET 10 SDK and Node 20+.
 
+**Aspire** (recommended; hot reload, one command). Requires the [Aspire CLI](https://aspire.dev/get-started/install-cli/):
+
+```bash
+aspire run
+```
+
+This starts the API and the Vite dev server (running `npm install` first if needed) and opens the Aspire
+dashboard, which shows each resource's URL and logs. Open the `frontend` URL from the dashboard, e.g.
+`<frontend url>/quiz/world-geography`. The AppHost is `backend/QuizApp.AppHost/AppHost.cs`.
+
 **Single process** (API serves the built SPA):
 
 ```bash
@@ -14,7 +24,7 @@ cd .. && dotnet run --project backend/QuizApp.Api
 # http://localhost:5210/quiz/world-geography
 ```
 
-**Development** (hot reload; Vite proxies `/api` to the backend):
+**Development without Aspire** (hot reload; Vite proxies `/api` to the backend):
 
 ```bash
 dotnet run --project backend/QuizApp.Api      # API on http://localhost:5210
@@ -89,6 +99,7 @@ backend/QuizApp.Api/
   Persistence/      document store abstraction + in-memory implementation
   Quizzes/          documents, QuizService (rules), endpoints, contracts (DTOs), seed data
 backend/QuizApp.Api.Tests/
+backend/QuizApp.AppHost/  Aspire orchestration for local dev (API + Vite)
 frontend/src/
   api/quizApi.ts               typed API client
   views/QuizView.vue           loading, errors, submit, URL update

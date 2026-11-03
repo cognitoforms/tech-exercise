@@ -1,0 +1,5 @@
+{
+  "appHost": {
+    "path": "backend/QuizApp.AppHost/QuizApp.AppHost.csproj"
+  }
+}

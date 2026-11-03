@@ -2,5 +2,6 @@
   <Folder Name="/backend/">
     <Project Path="backend/QuizApp.Api.Tests/QuizApp.Api.Tests.csproj" />
     <Project Path="backend/QuizApp.Api/QuizApp.Api.csproj" />
+    <Project Path="backend/QuizApp.AppHost/QuizApp.AppHost.csproj" />
   </Folder>
 </Solution>

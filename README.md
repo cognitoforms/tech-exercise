@@ -34,7 +34,7 @@ cd frontend && npm run dev                     # SPA on http://localhost:5173
 Sample quizzes (seeded at startup from `backend/QuizApp.Api/Quizzes/QuizSeeder.cs`):
 
 - `/quiz/world-geography`
-- `/quiz/web-fundamentals` (timed: 90 seconds, client-side only; see `frontend/src/quizTimeLimits.ts`)
+- `/quiz/web-fundamentals` (timed: 90 seconds; see `frontend/src/quizTimeLimits.ts`)
 - `/quiz/space`
 
 ## Tests
